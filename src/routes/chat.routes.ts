@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { askLLM } from "../services/llm.service.js";
+
+import { runAgent } from "../agent/agent.service.js";
 
 const router = Router();
 
@@ -13,7 +14,7 @@ router.post("/", async (req, res) => {
             });
         }
 
-        const answer = await askLLM(message);
+        const answer = await runAgent(message);
 
         return res.json({
             answer,

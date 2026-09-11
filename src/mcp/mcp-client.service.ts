@@ -3,7 +3,6 @@ import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import path from "path";
 
 let client: Client | null = null;
-
 let transport: StdioClientTransport | null = null;
 
 export async function connectToMcpServer() {
@@ -47,12 +46,10 @@ export async function callMcpTool(
 ) {
     const mcpClient = await connectToMcpServer();
 
-    const result = await mcpClient.callTool({
+    return await mcpClient.callTool({
         name: toolName,
         arguments: arguments_,
     });
-
-    return result;
 }
 
 export async function closeMcpClient() {

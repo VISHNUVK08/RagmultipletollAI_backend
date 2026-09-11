@@ -1,95 +1,54 @@
 import OpenAI from "openai";
 
-import { calculator } from "../tools/calculator.tool.js";
-import { getCurrentTime } from "../tools/time.tool.js";
-import { searchKnowledgeBase } from "../tools/search-knowledge.tool.js";
+import {
+    listMcpTools,
+    callMcpTool,
+} from "../mcp/mcp-client.service.js";
 
 const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
+type AgentTool = {
+    type: "function";
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+    strict: boolean;
+};
+
+async function getMcpToolsForOpenAI(): Promise<AgentTool[]> {
+    const mcpTools = await listMcpTools();
+
+    return mcpTools.map((tool) => ({
+        type: "function",
+        name: tool.name,
+        description: tool.description ?? "",
+        parameters: tool.inputSchema as Record<string, unknown>,
+        strict: false,
+    }));
+}
+
 export async function runAgent(
     userMessage: string
 ): Promise<string> {
-    const tools = [
-        {
-            type: "function" as const,
-            strict: true,
-            name: "calculator",
-            description:
-                "Calculate a mathematical expression and return the numeric result.",
-            parameters: {
-                type: "object",
-                properties: {
-                    expression: {
-                        type: "string",
-                        description:
-                            "The mathematical expression to calculate.",
-                    },
-                },
-                required: ["expression"],
-                additionalProperties: false,
-            },
-        },
-
-        {
-            type: "function" as const,
-            strict: true,
-            name: "get_current_time",
-            description:
-                "Get the current server time in ISO format.",
-            parameters: {
-                type: "object",
-                properties: {},
-                required: [],
-                additionalProperties: false,
-            },
-        },
-
-        {
-            type: "function" as const,
-            strict: true,
-            name: "search_knowledge_base",
-            description:
-                "Search the application's document knowledge base for relevant information. Use this when the user asks about information that may exist in the uploaded documents.",
-            parameters: {
-                type: "object",
-                properties: {
-                    query: {
-                        type: "string",
-                        description:
-                            "The search query to find relevant information in the knowledge base.",
-                    },
-                },
-                required: ["query"],
-                additionalProperties: false,
-            },
-        },
-    ];
+    const tools = await getMcpToolsForOpenAI();
 
     let response = await client.responses.create({
-        model: "gpt-5.6",
+        model: "gpt-5.6-luna",
 
         instructions: `
-You are MiniAgentAI, a helpful AI assistant.
+You are MiniAgentAI.
 
-You have access to several tools:
+You are a helpful AI research assistant.
 
-1. calculator
-   Use this for mathematical calculations.
+You can use tools provided through MCP.
 
-2. get_current_time
-   Use this when the user asks for the current time.
+When a tool is useful, call the appropriate tool.
 
-3. search_knowledge_base
-   Use this when the answer may be found in the application's documents.
+Do not invent tool results.
 
-Choose the appropriate tool when necessary.
-
-If you use information from the knowledge base, answer using
-that information and mention the relevant document source.
-
-If no tool is necessary, answer normally.
+After receiving a tool result, use it to answer the user.
 `,
 
         input: userMessage,
@@ -102,101 +61,47 @@ If no tool is necessary, answer normally.
             (item) => item.type === "function_call"
         );
 
-        // No tool call means the agent has finished.
         if (toolCalls.length === 0) {
-            return response.output_text;
+            break;
         }
 
         const toolOutputs = [];
 
         for (const toolCall of toolCalls) {
-            if (toolCall.type !== "function_call") {
-                continue;
-            }
+            console.log(
+                `MCP tool requested: ${toolCall.name}`
+            );
 
-            try {
-                const args = JSON.parse(toolCall.arguments);
+            console.log(
+                `Arguments: ${toolCall.arguments}`
+            );
 
-                // --------------------------------
-                // Calculator
-                // --------------------------------
+            const argumentsObject = JSON.parse(
+                toolCall.arguments
+            );
 
-                if (toolCall.name === "calculator") {
-                    const result = calculator(args.expression);
+            const result = await callMcpTool(
+                toolCall.name,
+                argumentsObject
+            );
 
-                    toolOutputs.push({
-                        type: "function_call_output" as const,
-                        call_id: toolCall.call_id,
-                        output: String(result),
-                    });
-                }
+            toolOutputs.push({
+                type: "function_call_output" as const,
 
-                // --------------------------------
-                // Current Time
-                // --------------------------------
+                call_id: toolCall.call_id,
 
-                else if (
-                    toolCall.name === "get_current_time"
-                ) {
-                    const result = getCurrentTime();
-
-                    toolOutputs.push({
-                        type: "function_call_output" as const,
-                        call_id: toolCall.call_id,
-                        output: result,
-                    });
-                }
-
-                // --------------------------------
-                // Knowledge Base / RAG
-                // --------------------------------
-
-                else if (
-                    toolCall.name === "search_knowledge_base"
-                ) {
-                    const results = await searchKnowledgeBase(
-                        args.query
-                    );
-
-                    toolOutputs.push({
-                        type: "function_call_output" as const,
-                        call_id: toolCall.call_id,
-                        output: JSON.stringify(results),
-                    });
-                }
-
-                // --------------------------------
-                // Unknown Tool
-                // --------------------------------
-
-                else {
-                    toolOutputs.push({
-                        type: "function_call_output" as const,
-                        call_id: toolCall.call_id,
-                        output: `Unknown tool: ${toolCall.name}`,
-                    });
-                }
-            } catch (error) {
-                console.error(
-                    `Tool execution failed: ${toolCall.name}`,
-                    error
-                );
-
-                toolOutputs.push({
-                    type: "function_call_output" as const,
-                    call_id: toolCall.call_id,
-                    output: "Tool execution failed.",
-                });
-            }
+                output: JSON.stringify(result),
+            });
         }
 
-        // Send tool results back to the LLM.
         response = await client.responses.create({
-            model: "gpt-5.6",
+            model: "gpt-5.6-luna",
 
             previous_response_id: response.id,
 
             input: toolOutputs,
         });
     }
+
+    return response.output_text;
 }

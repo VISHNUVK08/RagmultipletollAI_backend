@@ -1,0 +1,13 @@
+Docker is a platform used to package applications and their dependencies into containers.
+
+A Docker container is an isolated environment that contains everything required to run an application.
+
+Docker images are templates used to create containers.
+
+A Dockerfile contains instructions for building a Docker image.
+
+Docker Compose is a tool used to define and run multi-container applications.
+
+Docker Compose allows developers to configure multiple services in a YAML file.
+
+Containers are lightweight compared with traditional virtual machines because containers share the host operating system kernel.

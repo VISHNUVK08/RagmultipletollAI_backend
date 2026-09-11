@@ -1,0 +1,9 @@
+React is a JavaScript library for building user interfaces.
+
+React applications are built using reusable components.
+
+Components can receive data through props.
+
+React state allows components to store and manage changing data.
+
+React uses a virtual DOM to efficiently update the user interface.

@@ -1,0 +1,9 @@
+Node.js is a JavaScript runtime built on the V8 JavaScript engine.
+
+Node.js allows developers to run JavaScript outside the browser.
+
+Node.js is commonly used for backend APIs, web servers, command line tools and real-time applications.
+
+Node.js uses an event-driven architecture and non-blocking I/O.
+
+npm is the default package manager commonly used with Node.js projects.

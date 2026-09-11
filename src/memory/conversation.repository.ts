@@ -1,4 +1,5 @@
-import { db, Conversation, Message } from "../memory/db.service.js";
+import { db } from "../memory/db.service.js";
+import type { Conversation, Message } from "../memory/db.service.js";
 
 // ── Conversations ──────────────────────────────────────────
 

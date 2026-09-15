@@ -15,7 +15,7 @@ type AgentTool = {
     description: string;
     parameters: Record<string, unknown>;
     strict: boolean;
-};
+};//vk
 
 async function getMcpToolsForOpenAI(): Promise<AgentTool[]> {
     const mcpTools = await listMcpTools();
